@@ -1,0 +1,48 @@
+cff-version: 1.2.0
+message: >-
+  If you use G2Egrid in academic work, please cite it using the metadata
+  below (and, for the small-signal modelling method, the reference article
+  listed under "references").
+title: "G2Egrid: small-signal dq modelling of power systems with a high share of power electronics"
+abstract: >-
+  G2Egrid is a tool for the small-signal dq modelling of power systems with a
+  high share of power electronics. Each piece of equipment declares a
+  symbolic DAE model; the network assembles them into a global state-space
+  model (A, B, C, D) from which modal analysis, sensitivities, impedances,
+  continuation and time-domain simulation are derived. Python successor of
+  G2ELIN (MATLAB).
+type: software
+version: 0.1.0
+date-released: 2026-11-14
+license: GPL-3.0-or-later
+repository-code: "https://github.com/jbuire/g2elin_v2"
+authors:
+  - family-names: Buire
+    given-names: Jerome
+    email: jerome.buire@grenoble-inp.fr
+    affiliation: "Univ. Grenoble Alpes, CNRS, Grenoble INP, G2Elab, Grenoble, France"
+keywords:
+  - power systems
+  - small-signal stability
+  - power electronics
+  - grid-forming
+  - grid-following
+  - modal analysis
+  - dq frame
+  - DAE
+references:
+  - type: article
+    authors:
+      - family-names: Kelada
+        given-names: F.
+      - family-names: Buire
+        given-names: J.
+      - family-names: HadjSaid
+        given-names: N.
+    title: "Revisiting small-signal modeling for analyzing fast dynamic interactions in converter-dominated power systems"
+    journal: "IEEE Transactions on Power Systems"
+    volume: 40
+    issue: 5
+    start: 3819
+    end: 3832
+    year: 2025

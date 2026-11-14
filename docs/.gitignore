@@ -1,0 +1,6 @@
+_build/
+_notebooks/
+api/auto/
+_static/vendor/
+# python/.gitignore exclut les *.png ; les figures du manuel, elles, sont versionnees
+!_static/figures/*.png

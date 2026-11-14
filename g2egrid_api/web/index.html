@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>G2Egrid</title>
+<link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+
+<header>
+  <h1>G2Egrid <span>atelier de reseaux</span></h1>
+
+  <label class="doux" for="catalogue">Catalogue</label>
+  <select id="catalogue"><option value="">(chargement...)</option></select>
+  <button id="btn-charger" class="principal">Charger</button>
+
+  <span style="flex:1"></span>
+
+  <button id="btn-annuler" class="petit" title="Annuler la derniere modification (Ctrl+Z)" disabled>&#8630;</button>
+  <button id="btn-retablir" class="petit" title="Retablir (Ctrl+Y ou Ctrl+Maj+Z)" disabled>&#8631;</button>
+  <input id="nom-reseau" size="18" title="Nom du reseau">
+  <button id="btn-nouveau" title="Repartir d'un reseau vide">Nouveau</button>
+  <button id="btn-ouvrir" title="Ouvrir un reseau : .g2egrid.json, ou un fichier d'un autre outil -- MATPOWER (.m), PSS/E (.raw, v33/v34), pandapower (.json)">Ouvrir</button>
+  <button id="btn-enregistrer" title="Telecharger le reseau au format .g2egrid.json">Enregistrer</button>
+  <button id="btn-rapport" title="Rapport d'etude autonome (HTML) : version du code, empreinte du reseau, load flow, spectre, modes critiques et figures deja calculees ; il se rouvre comme un reseau">Rapport</button>
+  <button id="btn-catalogue" title="Enregistrer dans g2egrid/reseaux/ : le reseau rejoint le catalogue">Au catalogue</button>
+  <input type="file" id="fichier" accept=".json,.m,.raw,.html" hidden>
+  <span class="langue" data-i18n="non" role="group" aria-label="Langue / Language">
+    <button type="button" class="petit" data-langue="fr" title="Interface en francais">FR</button><button type="button" class="petit" data-langue="en" title="Interface in English">EN</button>
+  </span>
+  <span id="etat" class="doux"></span>
+  <span id="tache" hidden>
+    <progress id="tache-barre" max="1" value="0"></progress>
+    <span id="tache-msg" class="doux"></span>
+    <button id="tache-arreter" class="petit" title="Arreter le calcul au prochain point de controle">Arreter</button>
+  </span>
+</header>
+
+<nav>
+  <button data-onglet="constructeur" class="actif" title="Construire le reseau : caracteristiques nominales">Reseau</button>
+  <button data-onglet="loadflow" title="Slack, PV, PQ, consignes ; load flow et transits">Point de fonctionnement</button>
+  <button data-onglet="modal" title="T_eig et carte des valeurs propres">Modes</button>
+  <button data-onglet="balayage" title="Faire varier un parametre et suivre les modes">Variations</button>
+  <button data-onglet="robustesse" title="Quels modes bougent quand la puissance varie ou qu'un element declenche (N-1)">Robustesse</button>
+  <button data-onglet="stabilite" title="Continuation d'un parametre et bifurcations de Hopf, critere de la boucle mineure (impedances)">Limites et impedances</button>
+  <button data-onglet="simplification" title="Hypotheses de simplification du calcul des modes : rendre des dynamiques algebriques (dx/dt = 0), par type d'equipement ou par equipement">Simplifications</button>
+  <button data-onglet="temporel">Temporel</button>
+  <button data-onglet="evenements" title="Les grandeurs electriques apres un evenement transitoire ou de consigne : tension de chaque bus, P et Q des unites, frequence ; relais de surtension et cascades">Evenements</button>
+  <button data-onglet="impact" title="Ce que la distribution change au transport">Transport / distribution</button>
+  <button data-onglet="equations" title="La liste des equations dynamiques dx/dt = f(x, u) de tous les equipements du reseau, modifiables sur place">Equations</button>
+  <button data-onglet="blocs" title="Decrire un nouvel element du reseau par un schema-bloc, compile en equations">Blocs</button>
+  <button data-onglet="export" title="Le script Python et les exports">Code</button>
+  <button data-onglet="doc" title="La documentation : guide, theorie, equations des modeles, API">Documentation</button>
+</nav>
+
+<main>
+
+  <!-- ================================================== CONSTRUCTEUR -->
+  <section class="onglet actif" id="onglet-constructeur">
+    <div class="bascule-creation">
+      <button data-mode="constructeur">Creation graphique</button>
+      <button data-mode="tables">Creation par tables</button>
+    </div>
+    <div id="problemes"></div>
+    <div class="carte" id="panneau-import" hidden>
+      <h2>Importer un reseau <span>il se pose a droite du schema, renumerote, puis se raccorde a l'existant</span></h2>
+      <div class="formulaire">
+        <div><label for="imp-source">Source</label>
+          <select id="imp-source"></select></div>
+        <div id="imp-c-fichier" hidden><label for="imp-fichier">Fichier</label>
+          <input type="file" id="imp-fichier" accept=".json"></div>
+        <div><label for="imp-mode">Raccordement</label>
+          <select id="imp-mode">
+            <option value="transfo">par un transformateur</option>
+            <option value="ligne">par une ligne</option>
+            <option value="fusion">fusion des deux bus</option>
+            <option value="aucun">aucun (tracer a la main)</option>
+          </select></div>
+        <div class="imp-bus"><label for="imp-bus-importe">Bus du reseau importe</label>
+          <select id="imp-bus-importe"></select></div>
+        <div class="imp-bus"><label for="imp-bus-existant">Bus existant</label>
+          <select id="imp-bus-existant"></select></div>
+        <button class="imp-bus" id="btn-imp-choisir" title="Cliquer ensuite un bus du schema">Choisir sur le schema</button>
+        <label class="case-service"><input type="checkbox" id="imp-garder-ib"> garder ses bus infinis</label>
+        <label class="case-service"><input type="checkbox" id="imp-garder-slack"> garder ses slacks</label>
+        <button id="btn-importer" class="principal">Importer</button>
+        <button id="btn-imp-fermer">Fermer</button>
+      </div>
+      <div class="legende"><span>Le reseau importe prend un prefixe (la centaine au-dessus des
+        numeros deja pris). Sa reference passe au reseau existant : ses bus infinis sont retires
+        (le reseau existant devient son amont) et ses slacks passent en PV avec la production de
+        son load flow seul. Ses reglages de famille sont reportes bus par bus.</span></div>
+      <div id="imp-messages"></div>
+    </div>
+    <div class="rangee">
+
+      <div class="carte palette">
+        <h2>Outils</h2>
+        <button data-outil="select" class="actif">Selection / deplacer</button>
+        <div id="palette-outils"></div>
+        <div class="sep">Edition</div>
+        <button id="btn-copier" title="Copier l'equipement selectionne, avec ses parametres (Ctrl+C)">Copier</button>
+        <button id="btn-coller" title="Le coller : cliquer ensuite le bus qui le recevra (Ctrl+V)">Coller</button>
+        <button id="btn-supprimer">Supprimer la selection</button>
+        <button data-outil="lasso" title="Tracer un rectangle autour des bus a regrouper">Definir une zone</button>
+        <button id="btn-placer">Replacer les bus</button>
+        <button id="btn-import" title="Importer un reseau du catalogue ou d'un fichier, et le raccorder a celui-ci">Importer un reseau</button>
+      </div>
+
+      <div class="carte croissant">
+        <h2>Schema <span class="doux" id="aide-outil"></span></h2>
+        <div id="fil-ariane" class="fil-ariane" hidden></div>
+        <svg id="canevas" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+
+      <div class="carte proprietes">
+        <h2>Proprietes</h2>
+        <div id="inspecteur" class="doux">Rien de selectionne.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ========================================================= TABLES -->
+  <section class="onglet" id="onglet-tables">
+    <div class="bascule-creation">
+      <button data-mode="constructeur">Creation graphique</button>
+      <button data-mode="tables">Creation par tables</button>
+    </div>
+    <p class="doux">Les tables sont la description de reference du reseau : ce sont elles
+      que lisent les notebooks, le MATLAB et l'assembleur. Le schema et ces tables sont
+      <b>deux vues de la meme chose</b> : modifier une cellule redessine le schema, poser un
+      equipement sur le schema ajoute ses lignes ici. Cliquer une ligne la montre sur le schema
+      ci-contre ; selectionner un element dans l'onglet Reseau surligne ses lignes.</p>
+    <div class="rangee">
+      <div class="croissant" id="vue-tables"></div>
+      <div class="carte collant" style="width:430px;flex:none">
+        <h2>Schema <span class="doux" id="tables-sel"></span></h2>
+        <svg id="canevas-tables" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= LOADFLOW -->
+  <section class="onglet" id="onglet-loadflow">
+    <div class="carte">
+      <h2>Point de fonctionnement : type de chaque bus et consignes</h2>
+      <p class="doux">Le cas le plus courant : <b>un equipement en slack</b> (la reference
+        d'angle et de tension) et <b>tous les autres en PQ</b>. Un bus PV tient sa tension et
+        son P ; un bus PQ son P et son Q. Les charges sont en impedance constante.</p>
+      <div class="formulaire">
+        <div><label for="slack-choisi">Slack</label><select id="slack-choisi"></select></div>
+        <button id="btn-un-slack">Tout le reste en PQ</button>
+        <span class="doux">(les PV passent en PQ avec le reactif qu'ils fournissent : le point ne bouge pas)</span>
+      </div>
+      <div class="defilant" id="table-point"></div>
+    </div>
+    <div class="formulaire">
+      <button id="btn-loadflow" class="principal">Calculer le load flow</button>
+      <label class="doux"><input type="checkbox" id="voir-transits" checked> transits sur le schema</label>
+      <span id="loadflow-etat" class="doux"></span>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Plan de tension et transits</h2>
+        <svg id="canevas-lf" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+      <div class="carte" style="width:440px;flex:none">
+        <h2>Bus</h2>
+        <div class="defilant" id="table-loadflow"><p class="attente">Pas encore calcule.</p></div>
+      </div>
+    </div>
+    <div class="carte" id="carte-scc">
+      <h2>Puissance de court-circuit a chaque noeud <span>Thevenin a la CEI 60909 ; SCR = Scc / Sn des GFL du noeud ; faible sous 3, tres faible sous 2</span></h2>
+      <div class="formulaire">
+        <div><label for="scc-gfm">GFM</label>
+          <select id="scc-gfm">
+            <option value="tension">source de tension derriere son filtre</option>
+            <option value="courant">courant limite (Imax)</option>
+            <option value="aucun">ignores</option>
+          </select></div>
+        <div><label for="scc-gfl">GFL</label>
+          <select id="scc-gfl">
+            <option value="aucun">ignores (convention du SCR)</option>
+            <option value="courant">courant limite (Imax, CEI 60909)</option>
+          </select></div>
+        <label title="Charges en impedance constante, a 1 pu"><input type="checkbox" id="scc-charges"> charges</label>
+        <label title="Sb / sigma_max(Z_dq) du reseau linearise, convertisseurs et charges compris, a 1 Hz dans le repere dq (autour de 50 Hz)"><input type="checkbox" id="scc-dyn"> vue par l'impedance dq</label>
+        <button id="btn-scc" class="principal">Estimer Scc</button>
+        <span id="scc-etat" class="doux"></span>
+      </div>
+      <div class="rangee">
+        <div class="carte croissant">
+          <svg id="canevas-scc" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="doux legende-scc">
+            <span style="color:#7a0f0f">&#9679; SCR &lt; 2</span>
+            <span style="color:#d92d20">&#9679; 2 a 3</span>
+            <span style="color:#dc8a00">&#9679; 3 a 5</span>
+            <span style="color:#00743f">&#9679; &ge; 5</span>
+            <span style="color:#667085">&#9679; sans GFL (etiquette : Scc en MVA)</span>
+          </div>
+        </div>
+        <div class="carte" style="width:560px;flex:none">
+          <div class="defilant" id="table-scc"><p class="attente">Pas encore calcule.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== MODAL -->
+  <section class="onglet" id="onglet-modal">
+    <div class="formulaire">
+      <button id="btn-modal" class="principal">Calculer les modes</button>
+      <span class="bornes" id="mod-bornes"></span>
+      <label class="doux"><input type="checkbox" id="osc-seuls" checked> paires de frequence positive seulement</label>
+      <div id="bloc-filtre-domaine" hidden><label for="filtre-domaine">Domaine</label>
+        <select id="filtre-domaine" title="Le cote du mode : alternatif, continu, ou couple AC/DC (participation continue entre 10 et 90 %) ; inter-iles : porte par deux iles reliees par le continu">
+          <option value="">tous</option><option value="AC">AC</option><option value="DC">DC</option>
+          <option value="AC/DC">AC/DC couples</option><option value="couples">couples ou inter-iles</option>
+        </select></div>
+      <div><label for="axe-x">Abscisse</label><select id="axe-x"></select></div>
+      <div><label for="axe-y">Ordonnee</label><select id="axe-y"></select></div>
+      <button class="prereglage" data-axes="re,im">Re / Im</button>
+      <button class="prereglage" data-axes="re,f">Re / f</button>
+      <button class="prereglage" data-axes="f,zeta">f / &zeta;</button>
+      <span id="modal-etat" class="doux"></span>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Carte des valeurs propres</h2>
+        <svg id="carte-modes" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende">
+          <span id="legende-modes">Les traits gris sont les iso-amortissements.</span> <span>Echelle lineaire. <b>Tirer un rectangle</b> pour s'en approcher (les bornes se remplissent),
+            ou saisir X/Y min et max ; <b>double-cliquer</b> ou <i>Tout voir</i> pour revenir a l'echelle automatique.</span>
+        </div>
+      </div>
+      <div class="carte" style="width:520px;flex:none">
+        <h2>T_eig <span class="doux">-- le tableau des notebooks, du moins stable au plus stable</span>
+          <button id="btn-csv-teig" class="petit">CSV</button></h2>
+        <div class="defilant" id="table-modes"><p class="attente">Pas encore calcule.</p></div>
+        <div class="legende"><span>Cliquer un mode -- sur la carte ou dans la table --
+          ouvre sa forme modale.</span></div>
+      </div>
+    </div>
+    <div class="rangee" id="rangee-impact-dc" hidden>
+      <div class="carte croissant">
+        <h2>Impact du continu sur les modes <span id="impact-dc-etat" class="doux"></span></h2>
+        <div class="formulaire">
+          <button id="btn-impact-dc" class="principal">Comparer au continu rigide</button>
+        </div>
+        <div id="impact-resultat"></div>
+        <div class="legende"><span>Le reseau compare a son double ou le continu est RIGIDE : tensions
+          des noeuds continus figees, cables instantanes. Un mode retrouve mais deplace est un mode que
+          la dynamique du continu influence (ecart relatif sur la valeur propre) ; un mode retire est un
+          mode du continu lui-meme.</span></div>
+      </div>
+    </div>
+    <div class="rangee" id="rangee-mode-schema" hidden>
+      <div class="carte croissant">
+        <h2>Mode sur le schema <span id="mode-schema-titre" class="doux"></span></h2>
+        <svg id="schema-mode" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="formulaire">
+          <div><label><input type="checkbox" id="mode-animer" checked> Animer (ralenti)</label></div>
+        </div>
+        <div class="legende">
+          <span>Teinte : participation cumulee des elements de chaque bus et de chaque
+            branche. Fleche : phase de l'etat le plus participant du bus, relative a
+            celui de tout le mode ; longueur en racine de la participation. Animee,
+            toutes les fleches tournent ensemble, ralenties a un tour en 4 s : deux
+            fleches opposees, ce sont deux groupes qui oscillent l'un contre l'autre.</span>
+        </div>
+      </div>
+    </div>
+    <div class="rangee" id="rangee-forme" hidden>
+      <div class="carte" style="width:520px;flex:none">
+        <h2>Forme modale <span id="forme-titre" class="doux"></span></h2>
+        <svg id="polaire" viewBox="0 0 520 420" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="formulaire">
+          <div><label for="forme-suffixe">Etats</label>
+            <select id="forme-suffixe"><option value="">tous</option></select></div>
+        </div>
+        <div class="legende">
+          <span>Modules RELATIFS au plus grand, phases relatives a l'etat le plus
+            participant. Deux vitesses rotor en phase : mode local ; a 180 degres :
+            mode inter-machines.</span>
+        </div>
+      </div>
+      <div class="carte croissant">
+        <h2>Sensibilite de la valeur propre aux coefficients du modele</h2>
+        <div class="defilant" id="table-sensibilites"></div>
+        <div class="legende">
+          <span>|d lambda / d A[i,j]| : A[i,j] est l'effet de l'etat COLONNE sur la
+            derivee de l'etat LIGNE. C'est un coefficient d'equation, pas une paire
+            symetrique.</span>
+        </div>
+      </div>
+      <div class="carte croissant">
+        <h2>Sensibilite de la valeur propre aux parametres</h2>
+        <div class="defilant" id="table-parametres"></div>
+        <div class="legende">
+          <span>p . d lambda / d p : deplacement du mode pour une variation de 100 %
+            du parametre, point de fonctionnement fixe. d zeta en points
+            d'amortissement, d f en Hz.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= TEMPOREL -->
+  <section class="onglet" id="onglet-temporel">
+    <div class="formulaire">
+      <div><label for="entree">Consigne</label><select id="entree"></select></div>
+      <div><label for="amplitude">Amplitude [pu]</label><input type="number" id="amplitude" value="0.01" step="0.005"></div>
+      <div><label for="t0">Instant [s]</label><input type="number" id="t0" value="0" step="0.05" min="0"></div>
+      <div><label for="duree">Duree [s]</label><input type="number" id="duree" value="1" step="0.5" min="0.01"></div>
+      <div><label for="voie">Voie</label>
+        <select id="voie">
+          <option value="les_deux">les deux</option>
+          <option value="lineaire">lineaire</option>
+          <option value="non_lineaire">non lineaire</option>
+        </select></div>
+      <div><label for="etats">Etats traces</label><select id="etats" multiple size="4" style="min-width:230px"></select></div>
+      <div><label for="mesures">Mesures</label><select id="mesures" multiple size="4" style="min-width:200px"></select></div>
+      <div><label for="integrateur" title="auto : BDF2 des qu'il y a une manoeuvre (defaut, ouverture...), Radau sinon">Integrateur</label>
+        <select id="integrateur">
+          <option value="auto">auto</option>
+          <option value="Radau">Radau (pas adaptatif)</option>
+          <option value="BDF2">BDF2 (pas fixe)</option>
+        </select></div>
+      <div><label for="pas" title="pas de BDF2 ; vide = 1/(400 f0)">Pas BDF2 [us]</label><input type="number" id="pas" placeholder="auto" min="1" step="10" style="width:80px"></div>
+      <label class="doux" title="limitation de courant des convertisseurs, butees de l'excitation"><input type="checkbox" id="limiteurs" checked> limiteurs</label>
+      <label class="doux" title="plan de protection type du reseau continu : disjoncteur sur chaque cable (surintensite, 3 ms), blocage des stations sur sous-tension continue (0,8 pu) ou surintensite, decrochage des parcs sur surtension alternative"><input type="checkbox" id="protections-dc"> protections DC</label>
+      <label class="doux" title="Simuler aussi la tension de chaque bus, pour rejouer la simulation sur le schema"><input type="checkbox" id="rejeu-actif" checked> rejeu sur le schema</label>
+      <button id="btn-temporel" class="principal">Simuler</button>
+      <span id="temporel-etat" class="doux"></span>
+    </div>
+    <details id="bloc-scenario">
+      <summary>Scenario a plusieurs perturbations</summary>
+      <p class="doux">Coche pour remplacer l'echelon unique ci-dessus. L'integration est
+        coupee a chaque date et reprend de l'etat atteint, au lieu de laisser le solveur
+        traverser une marche. La voie lineaire, calculee en forme close, ne suit qu'un
+        echelon : elle est omise des que le scenario en compte plusieurs.</p>
+      <label class="doux"><input type="checkbox" id="scenario-actif"> utiliser le scenario</label>
+      <svg id="frise" viewBox="0 0 1000 96" preserveAspectRatio="none" style="width:100%;height:96px;cursor:crosshair"></svg>
+      <p class="doux" style="margin:2px 0 8px">Frise : glisser un evenement pour changer son instant,
+        double-cliquer pour en ajouter un a cet instant, cliquer pour le retrouver dans la table.</p>
+      <table id="table-scenario"><thead><tr>
+        <th>instant [s]</th><th>genre</th><th>consigne ou element</th><th>valeur</th><th></th>
+      </tr></thead><tbody></tbody></table>
+      <button id="btn-ajouter-evt">Ajouter un evenement</button>
+    </details>
+    <div class="legende">
+      <span><i style="border-top:2px solid #1f4e79"></i>lineaire</span>
+      <span><i style="border-top:2px dashed #bf2617"></i>non lineaire</span>
+      <span><i style="border-top:2px solid #2a7a4b"></i>mesure</span>
+    </div>
+    <div id="basculements" class="doux"></div>
+    <div class="rangee" id="rangee-rejeu" hidden>
+      <div class="carte croissant">
+        <h2>Rejeu sur le schema <span id="rejeu-titre" class="doux"></span></h2>
+        <div class="formulaire">
+          <button id="btn-rejeu" class="principal">Lecture</button>
+          <input type="range" id="rejeu-t" min="0" max="400" value="0" style="flex:1;min-width:300px">
+          <div><label for="rejeu-duree">Lecture en [s]</label><input type="number" id="rejeu-duree" value="8" min="1" step="1" style="width:60px"></div>
+        </div>
+        <svg id="schema-rejeu" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>Les bus prennent la couleur de leur tension simulee (voie non
+          lineaire) : rouge en dessous de 0,9 pu, bleu au-dessus de 1,1 pu ; le curseur suit aussi
+          la frise du scenario. Les evenements passes s'affichent au-dessus du schema.</span></div>
+        <div id="rejeu-evts" class="doux"></div>
+      </div>
+    </div>
+    <div class="grille-graphes" id="graphes-temporel"></div>
+  </section>
+
+  <!-- ===================================================== EVENEMENTS -->
+  <section class="onglet" id="onglet-evenements">
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Evenements <span class="doux">ce qui arrive au reseau, et quand</span></h2>
+        <div class="formulaire">
+          <div><label for="evt-genre">Genre</label>
+            <select id="evt-genre">
+              <option value="ouverture">ouverture (declenchement)</option>
+              <option value="blocage">blocage d'un convertisseur</option>
+              <option value="defaut">defaut (court-circuit)</option>
+              <option value="elimination">elimination du defaut</option>
+              <option value="charge">echelon de charge</option>
+              <option value="saut_de_phase">saut de phase</option>
+              <option value="echelon">echelon de consigne</option>
+              <option value="rampe">rampe de consigne</option>
+            </select></div>
+          <div><label for="evt-instant">Instant [s]</label><input type="number" id="evt-instant" value="0.5" step="0.1" min="0" style="width:70px"></div>
+          <div><label for="evt-filtre">Filtre</label><input id="evt-filtre" placeholder="ex. GFL3" style="width:90px"></div>
+          <div><label for="evt-cibles" id="evt-cibles-lbl" title="Plusieurs elements a la fois (Ctrl/Maj-clic) : un evenement par element, au meme instant">Element(s)</label>
+            <select id="evt-cibles" multiple size="6" style="min-width:230px"></select></div>
+          <div id="evt-champ-valeur"><label for="evt-valeur" id="evt-valeur-lbl">Amplitude [pu]</label><input type="number" id="evt-valeur" value="0.05" step="any" style="width:80px"></div>
+          <div id="evt-champ-valeur2"><label for="evt-valeur2" id="evt-valeur2-lbl">dQ [pu]</label><input type="number" id="evt-valeur2" value="0" step="any" style="width:80px"></div>
+          <button id="btn-evt-ajouter">Ajouter</button>
+          <button id="btn-evt-vider" title="Retirer tous les evenements">Vider</button>
+        </div>
+        <table id="evt-table"><thead><tr>
+          <th>instant [s]</th><th>genre</th><th>element ou consigne</th><th>valeur</th><th></th>
+        </tr></thead><tbody></tbody></table>
+        <p class="doux">Un evenement TRANSITOIRE change le reseau (ouverture, blocage, defaut puis
+          elimination, echelon de charge, saut de phase) ; un evenement DE CONSIGNE change la
+          reference d'un regulateur (echelon ou rampe sur une entree). Plusieurs elements choisis
+          ensemble donnent un evenement chacun, au meme instant : le declenchement simultane de
+          plusieurs unites.</p>
+      </div>
+      <div class="carte" style="width:400px;flex:none">
+        <h2>Relais et simulation</h2>
+        <label class="case-service" title="Chaque convertisseur des familles cochees a un relais de surtension : la tension a ses bornes depasse le seuil pendant la temporisation -> il declenche. Retombee : sous retombee x seuil, le relais retombe et repart de zero ; vide : relais verrouille des le premier depassement."><input type="checkbox" id="evt-relais" checked> relais de surtension des convertisseurs</label>
+        <div class="formulaire" id="evt-reglages-relais">
+          <div><label for="evt-vmax">Seuil [pu]</label><input type="number" id="evt-vmax" value="1.10" step="0.01" style="width:70px"></div>
+          <div><label for="evt-retard">Tempo. [s]</label><input type="number" id="evt-retard" value="0.2" step="0.1" min="0" style="width:70px"></div>
+          <div><label for="evt-retombee" title="rapport de retombee ; vide : verrouille">Retombee</label><input type="number" id="evt-retombee" value="0.98" step="0.001" min="0" max="1" style="width:76px"></div>
+          <div><label for="evt-action">Action</label>
+            <select id="evt-action"><option value="ouverture">ouverture</option><option value="blocage">blocage</option></select></div>
+          <label class="case-service"><input type="checkbox" id="evt-fam-gfl" checked> GFL</label>
+          <label class="case-service"><input type="checkbox" id="evt-fam-gfm"> GFM</label>
+        </div>
+        <div class="formulaire">
+          <div><label for="evt-duree">Duree [s]</label><input type="number" id="evt-duree" value="5" step="1" min="0.1" style="width:64px"></div>
+          <div><label for="evt-pas" title="pas fixe de BDF2 ; 1 ms suffit pour des secondes de regulation, un defaut proche demande plus fin">Pas [ms]</label><input type="number" id="evt-pas" value="1" step="0.1" min="0.01" style="width:60px"></div>
+          <div><label for="evt-n">Points</label><input type="number" id="evt-n" value="501" min="11" step="100" style="width:64px"></div>
+          <div><label for="evt-vbas" title="bornes de tension : le temps passe hors de [bas, haut] est compte pour chaque bus">Bornes [pu]</label>
+            <span><input type="number" id="evt-vbas" value="0.9" step="0.01" style="width:58px"> <input type="number" id="evt-vhaut" value="1.1" step="0.01" style="width:58px"></span></div>
+          <label class="case-service"><input type="checkbox" id="evt-limiteurs" checked> limiteurs</label>
+          <label class="case-service"><input type="checkbox" id="evt-prot-dc"> protections DC</label>
+        </div>
+        <div class="formulaire">
+          <button id="btn-evt-simuler" class="principal">Simuler</button>
+          <button id="btn-evt-cascade" title="La cascade en regimes permanents successifs (load flows) : les unites ouvertes par le scenario, puis celles dont le bus passe le seuil, jusqu'a ce que plus rien ne depasse. Instantane, sans dynamique.">Cascade quasi statique</button>
+          <select id="evt-ordre" title="vagues : toutes les unites au-dessus du seuil declenchent ensemble ; une a une : la plus haute d'abord (ce que font des relais a retombee de meme reglage)">
+            <option value="vague">en vagues</option><option value="une_a_une">une a une</option></select>
+        </div>
+        <div id="evt-etat" class="doux"></div>
+      </div>
+    </div>
+    <div id="evt-resume"></div>
+    <div class="rangee" id="evt-rangee-v" hidden>
+      <div class="carte croissant">
+        <h2>Tension des bus <span id="evt-v-titre" class="doux"></span></h2>
+        <div class="formulaire">
+          <div><label for="evt-tri">Trier par</label>
+            <select id="evt-tri">
+              <option value="dV">ecart |dV|</option><option value="Vmax">V max</option>
+              <option value="Vmin">V min</option><option value="t_hors">temps hors bornes</option>
+              <option value="ecart_lf">ecart au load flow</option><option value="bus">bus</option>
+            </select></div>
+          <div><label for="evt-filtre-bus">Bus</label><input id="evt-filtre-bus" placeholder="ex. 3" style="width:70px"></div>
+          <label class="case-service"><input type="checkbox" id="evt-hors-seuls"> hors bornes seulement</label>
+          <span class="bornes" id="evtv-bornes"></span>
+        </div>
+        <svg id="evt-courbes-v" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>Cliquer une ligne du tableau ajoute ou retire sa courbe. Traits
+          verticaux : evenements du scenario (gris) et declenchements des relais (rouge) ; tirets
+          horizontaux : bornes de tension. Vfin : moyenne sur la derniere fenetre ; V lf : load flow
+          apres les memes ouvertures, le regime vers lequel la simulation doit tendre (aux
+          regulations de frequence pres).</span></div>
+        <div id="evt-table-bus" class="defile"></div>
+      </div>
+    </div>
+    <div class="rangee" id="evt-rangee-u" hidden>
+      <div class="carte croissant">
+        <h2>Unites <span class="doux">P et Q avant et apres</span></h2>
+        <div class="formulaire">
+          <div><label for="evt-grandeur">Grandeur</label>
+            <select id="evt-grandeur"><option value="Q">Q</option><option value="P">P</option></select></div>
+          <div><label for="evt-filtre-u">Unite</label><input id="evt-filtre-u" placeholder="ex. GFL" style="width:80px"></div>
+          <label class="case-service" title="Tracer l'ecart a l'etat initial : des unites de tailles tres differentes restent lisibles sur le meme graphe"><input type="checkbox" id="evt-ecart-u" checked> ecart a t = 0</label>
+          <span class="bornes" id="evtu-bornes"></span>
+        </div>
+        <svg id="evt-courbes-u" viewBox="0 0 1000 340" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>P et Q en pu de la base du reseau, convention generateur ; une
+          unite sortie n'a plus de courbe. Cliquer une ligne ajoute ou retire sa courbe.</span></div>
+        <div id="evt-table-unites" class="defile"></div>
+      </div>
+    </div>
+    <div class="rangee" id="evt-rangee-f" hidden>
+      <div class="carte croissant">
+        <h2>Frequence <span id="evt-f-titre" class="doux"></span></h2>
+        <svg id="evt-courbe-f" viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>Frequence filtree (une periode) des bus des machines et des GFM
+          -- a defaut, de tous les bus sauf ceux d'une unite sortie ou d'un defaut, dont l'angle
+          saute a l'instant de la manoeuvre : minimum, maximum et moyenne a chaque instant.</span></div>
+      </div>
+      <div class="carte" style="width:440px;flex:none">
+        <h2>Relais</h2>
+        <div id="evt-relais-liste"></div>
+      </div>
+    </div>
+    <div class="rangee" id="evt-rangee-cascade" hidden>
+      <div class="carte croissant">
+        <h2>Cascade quasi statique <span id="evt-cascade-titre" class="doux"></span></h2>
+        <span class="bornes" id="evtc-bornes"></span>
+        <svg id="evt-courbes-cascade" viewBox="0 0 1000 340" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>Une courbe par bus d'unite protegee : sa tension a chaque
+          regime permanent de la cascade (0 : apres les ouvertures du scenario). Tirets rouges :
+          le seuil. Une unite declenche au regime suivant celui ou son bus le depasse.</span></div>
+        <div id="evt-cascade-table"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================= BALAYAGE -->
+  <section class="onglet" id="onglet-balayage">
+    <div class="formulaire">
+      <div><label for="bal-element">Element</label>
+        <select id="bal-element"></select></div>
+      <div><label for="bal-param">Parametre</label>
+        <select id="bal-param"></select></div>
+      <div><label>Valeur actuelle</label><span id="bal-actuelle" class="mono valeur-actuelle"></span></div>
+      <div><label for="bal-min">De</label><input type="number" id="bal-min" value="0.005" step="any"></div>
+      <div><label for="bal-max">A</label><input type="number" id="bal-max" value="0.05" step="any"></div>
+      <div><label for="bal-n">Pas</label><input type="number" id="bal-n" value="20" min="2" max="60" step="1"></div>
+      <button id="btn-balayage" class="principal">Balayer</button>
+      <span id="bal-etat" class="doux"></span>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Lieu des racines <span>plan complexe, tous les modes</span></h2>
+        <div class="formulaire"><span class="bornes" id="bal-bornes"></span></div>
+        <svg id="carte-lieux" viewBox="0 0 1000 480" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="curseur-lieux" id="bal-curseur-bloc" hidden>
+          <button id="bal-anim" title="Parcourir le balayage pas a pas">&#9654;</button>
+          <input type="range" id="bal-curseur" min="0" max="0" value="0" step="1">
+          <span id="bal-valeur" class="mono"></span>
+        </div>
+        <div class="legende">
+          <span>Plan complexe (Re en abscisse, Im en ordonnee), echelle lineaire, TOUS les modes :
+            un trait par mode suivi d'un pas au suivant, rond creux a la premiere valeur, rond
+            plein a la derniere (rouge s'il est instable). Passer a droite de l'axe Re = 0, c'est
+            devenir instable. Tirer un rectangle pour zoomer, double-cliquer pour tout revoir. Le
+            curseur (ou &#9654;) parcourt le balayage : le tableau donne, a chaque pas, les modes
+            visibles les moins amortis et les elements qui y participent ; survoler une ligne
+            surligne son lieu.</span>
+        </div>
+        <table id="bal-participations"></table>
+      </div>
+      <div class="carte" style="width:430px;flex:none">
+        <h2>Marge de stabilite</h2>
+        <svg id="carte-marge" viewBox="0 0 430 300" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende">
+          <span>La partie reelle la plus grande, en fonction du parametre. Elle
+            coupe zero a la valeur critique.</span>
+        </div>
+        <div id="bal-critique"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== ROBUSTESSE -->
+  <section class="onglet" id="onglet-stabilite">
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Continuation d'un parametre <span id="cont-etat" class="doux"></span></h2>
+        <div class="formulaire">
+          <div><label for="cont-element">Element</label><select id="cont-element"></select></div>
+          <div><label for="cont-param">Parametre</label><select id="cont-param"></select></div>
+          <div><label for="cont-de">de</label><input type="number" id="cont-de" step="any" style="width:90px"></div>
+          <div><label for="cont-a">a</label><input type="number" id="cont-a" step="any" style="width:90px"></div>
+          <div><label for="cont-pas">Pas</label><input type="number" id="cont-pas" value="15" min="3" max="100" style="width:60px"></div>
+          <label class="case-service"><input type="checkbox" id="cont-log" checked> logarithmique</label>
+          <label class="case-service" title="Refaire load flow et equilibre a chaque pas (parametre qui deplace le point de fonctionnement)"><input type="checkbox" id="cont-eq"> refaire l'equilibre</label>
+          <button id="btn-cont" class="principal">Suivre les modes</button>
+        </div>
+        <div class="rangee">
+          <div class="croissant">
+            <div class="formulaire"><span class="bornes" id="cont-bornes"></span></div>
+            <svg id="carte-cont" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div class="croissant">
+            <div class="formulaire"><span class="bornes" id="lieu-bornes"></span></div>
+            <svg id="carte-lieu" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+        <div class="legende"><span>A gauche, la plus grande partie reelle du spectre en fonction du
+          parametre (au-dessus de zero : instable). A droite, le lieu des modes qui s'approchent le
+          plus de l'axe imaginaire, du clair (debut) au fonce (fin). Les traversees sont raffinees
+          par dichotomie.</span></div>
+        <div id="cont-bifs"></div>
+      </div>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Statismes Vdc-P <span id="stat-etat" class="doux"></span></h2>
+        <div class="formulaire">
+          <div><label for="stat-stations">Stations</label><select id="stat-stations"></select></div>
+          <div><label for="stat-de">k x de</label><input type="number" id="stat-de" value="0.25" step="any" min="0.01" style="width:70px"></div>
+          <div><label for="stat-a">a</label><input type="number" id="stat-a" value="4" step="any" min="0.01" style="width:70px"></div>
+          <div><label for="stat-pas">Pas</label><input type="number" id="stat-pas" value="9" min="3" max="40" style="width:60px"></div>
+          <button id="btn-stat" class="principal">Balayer</button>
+        </div>
+        <div class="rangee">
+          <div class="croissant">
+            <div class="formulaire"><span class="bornes" id="statp-bornes"></span></div>
+            <svg id="carte-statp" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div class="croissant">
+            <div class="formulaire"><span class="bornes" id="statv-bornes"></span></div>
+            <svg id="carte-statv" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+        <svg id="carte-statre" viewBox="0 0 1000 260" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>Le statisme k des stations en mode droop multiplie par un
+          facteur, en echelle logarithmique (a gauche du facteur 1 : plus raide). En haut a gauche,
+          la puissance alternative de chaque convertisseur a port continu (MW, &gt; 0 : injectee dans
+          l'alternatif) : le partage que fixent les statismes. En haut a droite, les tensions des
+          noeuds continus. En bas, la plus grande partie reelle du spectre.</span></div>
+        <div id="stat-bifs"></div>
+      </div>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Boucle mineure (impedances) <span id="imp-etat" class="doux"></span></h2>
+        <div class="formulaire">
+          <div><label for="imp-element">Convertisseur</label><select id="imp-element"></select></div>
+          <div><label for="imp-fmin">f min [Hz]</label><input type="number" id="imp-fmin" value="0.1" step="any" style="width:70px"></div>
+          <div><label for="imp-fmax">f max [Hz]</label><input type="number" id="imp-fmax" value="5000" step="any" style="width:80px"></div>
+          <button id="btn-imp" class="principal">Calculer</button>
+          <label class="case-service" title="Rayon r affiche comme log10(1 + r) : la region du point -1 reste lisible quand les lieux partent loin"><input type="checkbox" id="imp-compresse" checked> echelle compressee</label>
+        </div>
+        <div id="imp-verdict"></div>
+        <div class="rangee">
+          <div class="croissant">
+            <div class="formulaire"><span class="bornes" id="nyq-bornes"></span></div>
+            <svg id="carte-nyquist" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+          <div class="croissant">
+            <div class="formulaire"><span class="bornes" id="zb-bornes"></span></div>
+            <svg id="carte-zbode" viewBox="0 0 1000 420" preserveAspectRatio="xMidYMid meet"></svg>
+          </div>
+        </div>
+        <div class="legende"><span>Le convertisseur contre le reste du reseau, vu de son bus :
+          gain de boucle Z_reste.Y_conv (GFL) ou Z_conv.Y_reste (GFM). A gauche, les lieux
+          caracteristiques (valeurs propres du gain de boucle) pour f de -f max a f max, et le
+          point -1 : le nombre de tours de det(I+L) autour de l'origine donne, quand la boucle
+          ouverte est stable, le nombre de modes instables. A droite, en fonction de f
+          (logarithmique) : |Z| du reste du reseau et du convertisseur (plus grandes valeurs
+          singulieres, dB) ; en rouge, les bandes ou le convertisseur n'est pas passif.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="onglet" id="onglet-robustesse">
+    <div class="formulaire">
+      <div><label for="rob-frac">Variation [%]</label><input type="number" id="rob-frac" value="10" step="5" min="1" max="50"></div>
+      <label class="case-service"><input type="checkbox" id="rob-p" checked> variations de puissance</label>
+      <label class="case-service"><input type="checkbox" id="rob-n1" checked> deconnexions (N-1)</label>
+      <button id="btn-robustesse" class="principal">Chercher les modes sensibles</button>
+      <span id="rob-etat" class="doux"></span>
+    </div>
+    <div id="rob-alertes"></div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Ou vont les modes <span>plan complexe, cas de base et variantes</span></h2>
+        <div class="formulaire"><span class="bornes" id="rob-bornes"></span></div>
+        <svg id="carte-robustesse" viewBox="0 0 1000 480" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende" id="rob-legende">
+          <span>Plan complexe, echelle lineaire, tous les modes. Un rond noir par mode du cas de
+            base ; autour, le meme mode dans chaque variante (rond bleu : puissance, carre orange :
+            deconnexion). A droite de l'axe Re = 0, le mode est instable ; les rayons pointilles
+            sont les iso-amortissements a 5 et 10 %. Cliquer un mode pour relier ses variantes et
+            lire leur detail ; tirer un rectangle pour zoomer, double-cliquer pour tout revoir.</span>
+        </div>
+      </div>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Modes, du plus sensible au moins sensible</h2>
+        <div class="defilant" id="rob-modes"><p class="attente">Pas encore calcule.</p></div>
+        <div class="legende">
+          <span>Score = plus fort deplacement relatif de la valeur propre |d&lambda;|/|&lambda;|,
+            par genre de perturbation. zeta min : l'amortissement le plus bas atteint.</span>
+        </div>
+      </div>
+    </div>
+    <div class="carte">
+      <h2>Detail du mode <span id="rob-titre" class="doux"></span></h2>
+      <div class="defilant" id="rob-detail"><p class="attente">Cliquer un mode.</p></div>
+      <div class="legende">
+        <span>Chaque unite pousse sa production, chaque charge monte ; l'ecart est repris par les
+          unites reglantes (SM, GFM a batterie) au prorata de leur puissance nominale, les GFL (PV)
+          restant a leur MPPT. Puis chaque element est ouvert a son tour. Les modes de chaque
+          variante sont apparies a ceux du cas de base par leurs participations ; un mode porte a
+          plus de 50 % par l'element ouvert disparait avec lui. Une ouverture qui coupe le reseau en
+          iles est un ilotage : montree, hors score.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================================================ SIMPLIFICATION -->
+  <section class="onglet" id="onglet-simplification">
+    <div class="formulaire">
+      <button id="btn-simp-comparer" class="principal">Comparer les modes</button>
+      <button id="btn-simp-effacer" type="button">Tout dynamique</button>
+      <label class="case-service" title="Tous les autres calculs (Modes, Variations, Robustesse, Temporel...) prennent alors le modele simplifie"><input type="checkbox" id="simp-appliquer"> appliquer a tous les calculs</label>
+      <span id="simp-etat" class="doux"></span>
+    </div>
+    <div class="carte">
+        <h2>Hypotheses classiques <span>preregles, restreints aux equipements du reseau</span></h2>
+        <div id="simp-preregles"><p class="attente">Ouvrir l'onglet charge le reseau.</p></div>
+    </div>
+    <div class="carte">
+        <h2>Par type d'equipement, puis par equipement <span>dynamique / dx/dt = 0 / fige</span></h2>
+        <div class="defilant" id="simp-types"></div>
+        <div class="legende">
+          <span><b>dx/dt = 0</b> (statique) : l'etat devient une variable algebrique, son equation
+            differentielle une contrainte ; <b>fige</b> : l'etat garde sa valeur d'equilibre. Le choix
+            d'un equipement l'emporte sur celui de son type. Deplier un type pour regler ses
+            equipements un par un.</span>
+        </div>
+    </div>
+    <div id="simp-alertes"></div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Modele complet et modele simplifie <span>plan complexe</span></h2>
+        <div class="formulaire"><span class="bornes" id="simp-bornes"></span></div>
+        <svg id="carte-simplification" viewBox="0 0 1000 480" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende">
+          <span>Rond noir : mode du modele complet ; losange vert, relie a lui : le meme mode dans le
+            modele simplifie. Croix grise : mode retire (porte a plus de 50 % par les etats rendus
+            algebriques) ; croix rouge : mode perdu (porte par les etats gardes, mais introuvable) ;
+            carre violet : mode nouveau, que le modele simplifie invente. Tirer un rectangle pour
+            zoomer, double-cliquer pour tout revoir.</span>
+        </div>
+      </div>
+    </div>
+    <div class="carte">
+      <h2>Modes <span>du moins amorti au plus amorti</span></h2>
+      <div class="defilant" id="simp-modes"><p class="attente">Pas encore calcule.</p></div>
+      <div class="legende">
+        <span>Une simplification est sure pour la stabilite quand elle ne retire ni ne perd aucun
+          mode instable ou mal amorti (zeta &lt; 5 % sous 100 Hz), n'en invente aucun, et ne change le
+          signe d'aucune partie reelle. Ecart = |lambda simplifie - lambda complet| / |lambda complet|.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================================================== IMPACT -->
+  <section class="onglet" id="onglet-impact">
+    <div class="carte">
+      <h2>Ce que la distribution change au transport</h2>
+      <p class="doux">On compare le modele <b>complet</b> a un <b>equivalent statique</b> ou chaque
+        instance de zone est remplacee par la puissance qu'elle soutire reellement au poste. Le point
+        de fonctionnement du transport est alors identique dans les deux : la seule difference est
+        la <b>dynamique</b> de la distribution. On lit ce qu'elle deplace, ce qu'elle cree, et
+        poste par poste, qui en est responsable.</p>
+      <div class="formulaire">
+        <button id="btn-impact" class="principal">Mesurer l'impact</button>
+        <div><label for="impact-fmax">Bande [Hz]</label><input type="number" id="impact-fmax" value="5" min="0.5" step="1"></div>
+        <label class="doux"><input type="checkbox" id="impact-poste" checked> poste par poste</label>
+        <span id="impact-etat" class="doux"></span>
+      </div>
+    </div>
+    <div class="rangee">
+      <div class="carte croissant">
+        <h2>Modes du transport : sans (creux) et avec (plein) la dynamique de la distribution</h2>
+        <div class="formulaire"><span class="bornes" id="imp-bornes"></span></div>
+        <svg id="carte-impact" viewBox="0 0 1000 480" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legende"><span>Rond creux : le mode du transport quand chaque distribution est
+          remplacee par la puissance qu'elle soutire (equivalent statique) ; rond plein : le meme mode
+          dans le modele complet, violet si la distribution y participe a plus de 10 % ; losange rouge :
+          un mode que seule la distribution dynamique fait apparaitre. Le trait gris relie les deux
+          positions d'un meme mode. Echelle lineaire ; tirer un rectangle pour zoomer, double-cliquer
+          pour tout revoir.</span></div>
+      </div>
+      <div class="carte" style="width:460px;flex:none">
+        <h2>Synthese</h2>
+        <div id="impact-synthese"><p class="attente">Pas encore calcule. Il faut un reseau a zones
+          (par exemple <code>wscc3sm_zones</code>).</p></div>
+      </div>
+    </div>
+    <div class="carte"><h2>Modes du transport</h2><div class="defilant" id="impact-paires"></div></div>
+    <div class="carte"><h2>Modes crees ou degrades par la distribution</h2><div class="defilant" id="impact-alertes"></div></div>
+    <div class="carte"><h2>Poste par poste</h2><div class="defilant" id="impact-postes"></div></div>
+
+    <div class="carte">
+      <h2>Ajouter des GFL au hasard <span>dans les distributions</span></h2>
+      <div class="formulaire">
+        <div><label for="mul-n">Nombre de GFL</label><input type="number" id="mul-n" value="5" min="1" max="100" step="1"></div>
+        <div><label for="mul-part">Puissance [% de la charge de la zone]</label><input type="number" id="mul-part" value="5" min="0.5" max="50" step="0.5"></div>
+        <div><label for="mul-graine">Graine (vide = au hasard)</label><input type="number" id="mul-graine" value="" step="1" placeholder="au hasard"></div>
+        <button id="btn-mul-gfl" class="principal">Ajouter</button>
+        <span id="mul-gfl-etat" class="doux"></span>
+      </div>
+      <div class="legende"><span>Chaque GFL va sur un bus tire au hasard parmi les bus libres de toutes les
+        zones (ni le poste, ni un bus deja equipe). C'est un PV : il produit a sa puissance, son bus reste PQ.
+        Une meme graine redonne les memes bus. Le reseau est modifie : on peut recommencer, au fur et a mesure.</span></div>
+      <div class="defilant" id="mul-ajouts"></div>
+    </div>
+
+    <div class="carte">
+      <h2>Modele complet ou modeles reduits ?</h2>
+      <p class="doux">Deux simplifications d'usage, confrontees au modele complet :
+        <b>le transport etudie seul</b>, chaque distribution remplacee par la puissance qu'elle soutire -- en
+        charge R-L, ou en <i>hybride</i> (sa production GFL en puissance constante) ; et <b>chaque distribution
+        etudiee seule</b>, tout le reste du reseau remplace par un bus infini derriere l'impedance de Thevenin
+        vue du poste. Pour chacune : l'ecart relatif |d&lambda;|/|&lambda;| le plus grand et le plus grand ecart
+        d'amortissement, sur les modes que la partie etudiee porte a plus de 50 % (jusqu'a 100 Hz).</p>
+      <p class="legende">Partition : le modele complet dx/dt = A x + B u est separe en x_T (transport) et
+        x_D (distributions). Etudier le transport seul, c'est faire passer x_D dans les entrees : fige,
+        les modes sont ceux de A_TT ; quasi statique (dx_D/dt = 0), ceux de A_TT - A_TD A_DD^-1 A_DT.
+        Les blocs A_TD, A_DT sont exactement ce que la separation neglige. Un cote rapide se rend quasi
+        statique, un cote lent se fige.</p>
+      <div class="formulaire">
+        <button id="btn-mul-comparer" class="principal">Comparer</button>
+        <span id="mul-comparer-etat" class="doux"></span>
+      </div>
+      <div class="defilant" id="mul-synthese"></div>
+      <h2 style="margin-top:14px">Modes d'interaction <span>portes a la fois par le transport et la distribution (10 a 90 %), amortis a moins de 30 %</span></h2>
+      <div class="defilant" id="mul-interaction"></div>
+    </div>
+
+    <div class="carte">
+      <h2>Balayage de penetration <span>des GFL ajoutes par paquets, les ecarts a chaque palier</span></h2>
+      <div class="formulaire">
+        <div><label for="pen-nmax">Jusqu'a (GFL)</label><input type="number" id="pen-nmax" value="40" min="1" max="200" step="1"></div>
+        <div><label for="pen-pas">Par paquets de</label><input type="number" id="pen-pas" value="10" min="1" step="1"></div>
+        <div><label for="pen-graine">Graine</label><input type="number" id="pen-graine" value="1" step="1"></div>
+        <button id="btn-penetration" class="principal">Balayer</button>
+        <span id="pen-etat" class="doux"></span>
+      </div>
+      <svg id="carte-penetration" viewBox="0 0 1000 400" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legende"><span>Ecart relatif le plus grand entre modele reduit et modele complet, en fonction de
+        la production GFL de la distribution. Le reseau lui-meme n'est pas modifie. Compter une dizaine de
+        secondes par palier.</span></div>
+      <div class="defilant" id="pen-table"></div>
+    </div>
+  </section>
+
+  <!-- ========================================================= EXPORT -->
+  <section class="onglet" id="onglet-export">
+    <div class="carte">
+      <h2>Reprendre le reseau en Python</h2>
+      <p class="doux">Ce qu'on construit et regle ici se developpe ensuite en code, par un
+        <code>Atelier</code> : l'objet Python qui offre ce que font les onglets, par les memes
+        fonctions -- un T_eig calcule dans un notebook est celui de l'onglet Modes, au bit pres.
+        Enregistrer le reseau <b>Au catalogue</b> permet de le relire par son nom.</p>
+      <div class="formulaire">
+        <button id="btn-code" class="principal">Produire le script</button>
+        <label class="doux"><input type="checkbox" id="code-catalogue"> relire depuis le catalogue (par son nom)</label>
+        <button id="btn-copier-code">Copier</button>
+      </div>
+      <textarea id="code-python" class="mono code" spellcheck="false"></textarea>
+    </div>
+    <div class="carte">
+      <h2>Exports</h2>
+      <div class="formulaire">
+        <button id="btn-export">Cellule de donnees (notebook)</button>
+        <button data-exporter="notebook">Notebook complet</button>
+        <button data-exporter="matlab">Fichier .m (MATLAB V2)</button>
+        <button data-exporter="matpower" title="Le load flow du reseau au format MATPOWER (mpc)">Cas MATPOWER</button>
+        <span id="export-etat" class="doux"></span>
+      </div>
+      <textarea id="sortie-export" class="mono code" spellcheck="false"></textarea>
+    </div>
+  </section>
+
+  <!-- ==================================================== EQUATIONS -->
+  <section class="onglet" id="onglet-equations">
+    <div class="formulaire">
+      <div><label for="eq-element">Equipement</label>
+        <select id="eq-element" title="Restreindre la liste a un equipement"></select></div>
+      <div class="eq-genres" title="Genres d'equations affiches : les etats seuls (dx/dt = f) par defaut">
+        <label><input type="checkbox" id="eq-g-etat" checked> etats dx/dt</label>
+        <label><input type="checkbox" id="eq-g-algebrique"> algebriques</label>
+        <label><input type="checkbox" id="eq-g-sortie"> sorties</label>
+      </div>
+      <div><label for="eq-recherche">Recherche</label>
+        <input id="eq-recherche" type="search" size="20" placeholder="variable, equipement, expression" title="Cherche dans le nom de l'equipement, la variable et l'expression"></div>
+      <label><input type="checkbox" id="eq-latex"> LaTeX</label>
+      <button id="eq-copier" type="button" title="Copie les equations affichees en LaTeX">Copier en LaTeX</button>
+      <button id="eq-actualiser" type="button" title="Recalculer la liste depuis les tables">Actualiser</button>
+      <span id="eq-compte" class="doux"></span>
+    </div>
+    <p class="doux eq-aide">Cliquer une expression pour la modifier : Entree valide, Echap annule. L'equipement concerne passe alors de son modele natif a un modele a equations (annulable par Ctrl+Z). Les lignes grisees (branches, noeuds, ports continus) ne se modifient pas.</p>
+    <div id="eq-etat" class="doux"></div>
+    <div class="eq-validation pb" hidden></div>
+    <div id="eq-liste" class="carte eq-liste"></div>
+    <div id="eq-latex-sortie"></div>
+  </section>
+
+  <!-- ==================================================== BLOCS -->
+  <section class="onglet" id="onglet-blocs">
+    <div class="formulaire">
+      <div><label for="blocs-modele">Modele</label>
+        <select id="blocs-modele"></select></div>
+      <button id="btn-blocs-renommer" type="button">Renommer</button>
+      <button id="btn-blocs-dupliquer" type="button">Dupliquer</button>
+      <button id="btn-blocs-supprimer" type="button">Supprimer</button>
+      <div><label for="blocs-exemple">Nouveau modele, depuis</label>
+        <select id="blocs-exemple"></select></div>
+      <button id="btn-blocs-nouveau" type="button">Creer</button>
+      <button id="btn-blocs-regrouper" type="button" disabled title="Regroupe les blocs selectionnes (Maj+clic, ou rectangle tire sur le fond) en un sous-systeme">Regrouper en sous-systeme</button>
+      <button id="btn-blocs-degrouper" type="button" disabled title="Remet les blocs du sous-systeme selectionne au niveau courant">Degrouper</button>
+      <button id="btn-blocs-enregistrer" type="button" title="Range ce modele dans la bibliotheque, partagee entre les reseaux">Enregistrer dans la bibliotheque</button>
+      <button id="btn-blocs-biblio" type="button" title="Liste des modeles de la bibliotheque : ouvrir ou supprimer">Ouvrir depuis la bibliotheque</button>
+      <button id="btn-blocs-convertir" type="button">Voir en equations</button>
+      <button id="btn-blocs-compiler" type="button" class="primaire">Compiler en equations</button>
+      <button id="btn-blocs-poser" type="button" title="Poser un element de ce modele sur un bus du reseau">Poser sur le reseau</button>
+    </div>
+    <div id="blocs-biblio" class="carte blocs-biblio" hidden></div>
+    <p id="blocs-vide" class="doux">Aucun modele dans ce reseau : en creer un depuis un exemple.</p>
+    <div id="blocs-eq-modele" class="carte eq-modele" hidden></div>
+    <div id="blocs-espace" class="blocs-espace">
+      <div id="blocs-palette" class="blocs-palette"></div>
+      <div class="blocs-centre">
+        <nav id="blocs-ariane" class="blocs-ariane" aria-label="Niveau affiche"></nav>
+        <svg id="blocs-svg" viewBox="0 0 1000 560" preserveAspectRatio="xMinYMin meet"></svg>
+        <div class="formulaire">
+          <span id="blocs-etat" class="doux"></span>
+          <label><input type="checkbox" id="blocs-latex"> LaTeX</label>
+        </div>
+        <div id="blocs-equations"></div>
+      </div>
+      <div class="blocs-droite">
+        <div class="carte"><h2>Bloc</h2><div id="blocs-proprietes"></div></div>
+        <div class="carte"><h2>Parametres du modele <span>reglables par bus dans PARAMS_PAR_BUS</span></h2><div id="blocs-parametres"></div></div>
+        <div class="carte doux blocs-aide">
+          Deux <b>sorties</b> vers le reseau : P et Q (puissance injectee, base Sb) ou id et iq (courant injecte).
+          Exactement deux <b>consignes</b>, calees au load flow sur la puissance du bus de l'element.
+          Les <b>entrees</b> lisent la tension (vd, vq, V) et la frequence (w) du bus.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================================================== DOCUMENTATION -->
+  <section class="onglet" id="onglet-doc">
+    <div class="formulaire">
+      <button id="btn-doc-accueil">Accueil</button>
+      <button id="btn-doc-equations">Equations des modeles</button>
+      <button id="btn-doc-api">Reference de l'API</button>
+      <a id="lien-doc" href="/doc/index.html" target="_blank" class="doux">ouvrir dans un nouvel onglet</a>
+      <button id="btn-doc-construire">Construire / mettre a jour la documentation</button>
+      <span id="doc-etat" class="doux"></span>
+    </div>
+    <iframe id="cadre-doc" title="Documentation" style="width:100%;height:calc(100vh - 170px);border:1px solid var(--bord, #d0d5dd);border-radius:6px;background:#fff"></iframe>
+  </section>
+</main>
+
+<div id="infobulle"></div>
+<div id="fiche" class="fiche-fond" hidden>
+  <div class="fiche-page" role="dialog" aria-labelledby="fiche-titre">
+    <div class="fiche-tete">
+      <h2 id="fiche-titre">Fiche</h2>
+      <button id="fiche-fermer" title="Fermer (Echap)">Fermer ✕</button>
+    </div>
+    <div id="fiche-corps"></div>
+  </div>
+</div>
+<script src="/web/i18n.js"></script>
+<script src="/web/i18n_en.js"></script>
+<script src="/web/app.js"></script>
+<script src="/web/fiche.js"></script>
+<script src="/web/blocs.js"></script>
+<script src="/web/equations.js"></script>
+</body>
+</html>

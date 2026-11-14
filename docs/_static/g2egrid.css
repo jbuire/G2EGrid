@@ -1,0 +1,15 @@
+/* Couleurs G2Elab sur le theme Read the Docs */
+.wy-side-nav-search, .wy-nav-top { background-color: #1f4e79; }
+.wy-side-nav-search > div.version { color: #dbe6f1; }
+.wy-nav-content { max-width: 980px; }
+.rst-content .sd-card-title { color: #1f4e79; font-weight: 600; }
+.rst-content table.docutils td, .rst-content table.docutils th { white-space: normal; }
+.rst-content div.math { overflow-x: auto; }
+.sd-card { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); }
+/* schemas Mermaid : a leur taille, pas dans une boite de 500 px */
+pre.mermaid, .mermaid-container > pre { height: auto !important; min-height: 0 !important; }
+pre.mermaid > svg, .mermaid-container svg { height: auto !important; max-width: 100% !important; }
+/* equations numerotees : le numero a droite, sur la ligne de l'equation */
+div.math { display: flex; flex-direction: row-reverse; align-items: center; }
+div.math > span.eqno { float: none; margin-left: 1em; flex: none; }
+div.math > mjx-container { flex: 1 1 auto; }

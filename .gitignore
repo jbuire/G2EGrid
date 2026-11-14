@@ -1,0 +1,19 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+.ipynb_checkpoints/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+# la documentation construite et ses copies de notebooks
+docs/_build/
+docs/_notebooks/
+docs/api/auto/
+docs/_static/vendor/
+# les reseaux enregistres depuis l'atelier
+reseaux/sauvegardes/
