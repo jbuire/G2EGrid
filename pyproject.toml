@@ -5,13 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "g2egrid"
 version = "0.1.0"
-description = "Small-signal dq modelling of power systems with a high share of power electronics: symbolic DAE models assembled into a global state-space model"
+description = "Small-signal modelling of power systems with a high share of power electronics: symbolic DAE models assembled into a global state-space model"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 authors = [{ name = "Jerome Buire", email = "jerome.buire@grenoble-inp.fr" }]
-keywords = ["power systems", "small-signal stability", "power electronics", "grid-forming", "grid-following", "modal analysis", "dq frame"]
+keywords = ["power systems", "small-signal stability", "power electronics", "grid-forming", "grid-following", "modal analysis"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",

@@ -28,7 +28,6 @@ keywords:
   - grid-forming
   - grid-following
   - modal analysis
-  - dq frame
   - DAE
 references:
   - type: article

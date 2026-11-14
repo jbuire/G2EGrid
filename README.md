@@ -4,8 +4,7 @@
 
 *[Version française](README.fr.md)*
 
-**G2Egrid** is a Python tool for the **small-signal dq modelling** of power
-systems with a high share of power electronics. Each piece of equipment
+**G2Egrid** is a Python tool for stability analysis of power system. Each piece of equipment
 declares a symbolic DAE model; the network assembles them into one global
 state-space model (A, B, C, D), from which modal analysis, sensitivities,
 impedances, continuation and time-domain simulation are derived.
@@ -97,7 +96,7 @@ Citation metadata are in [`CITATION.cff`](CITATION.cff).
 ```bibtex
 @software{g2egrid,
   author  = {Buire, Jerome},
-  title   = {{G2Egrid}: small-signal dq modelling of power systems
+  title   = {{G2Egrid}: small-signal modelling of power systems
              with a high share of power electronics},
   year    = {2026},
   version = {0.1.0},

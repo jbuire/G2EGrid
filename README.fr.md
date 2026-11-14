@@ -4,8 +4,7 @@
 
 *[English version](README.md)*
 
-**G2Egrid** est un outil Python de **modélisation petit-signal dq** de réseaux
-électriques à forte part d'électronique de puissance. Chaque équipement
+**G2Egrid** est un outil Python d'analyse de stabiltié de réseaux électriques. Chaque équipement
 déclare un modèle DAE symbolique ; le réseau assemble le tout en un modèle
 d'état global (A, B, C, D), dont on tire analyse modale, sensibilités,
 impédances, continuation et simulation temporelle.
